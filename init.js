@@ -44,9 +44,9 @@ global.mysql.query("SELECT * FROM config").then(function (rows) {
         }
     });
 }).then(function(){
-    appInsights.setup(global.config.monitoring.appInsightsKey);
+    appInsights.setup(global.config.monitoring.appInsightsKey).setAutoCollectRequests(false);
     let appInsightsClient = new appInsights.TelemetryClient(global.config.monitoring.appInsightsKey);
-    global.appInsightsClient = appInsightsClient;
+    global.appInsights = appInsightsClient;
     global.config['coin'] = JSON.parse(coinConfig)[global.config.coin];
     coinInc = require(global.config.coin.funcFile);
     global.coinFuncs = new coinInc();
@@ -62,9 +62,9 @@ global.mysql.query("SELECT * FROM config").then(function (rows) {
     if (argv.hasOwnProperty('tool') && fs.existsSync('./tools/'+argv.tool+'.js')) {
         require('./tools/'+argv.tool+'.js');
     } else if (argv.hasOwnProperty('module')){
-        appInsights.defaultClient.context.tags[appInsights.defaultClient.context.keys.cloudRole] = global.appInsightsClient.context.tags[global.appInsightsClient.context.keys.cloudRole] = argv.module;
+        appInsights.defaultClient.context.tags[appInsights.defaultClient.context.keys.cloudRole] = global.appInsights.context.tags[global.appInsights.context.keys.cloudRole] = argv.module;
         appInsights.start();
-        global.appInsightsClient.trackEvent({name: "moduleStart"});
+        global.appInsights.trackEvent({name: "moduleStart"});
         switch(argv.module){
             case 'pool':
                 global.config.ports = [];
@@ -103,13 +103,16 @@ global.mysql.query("SELECT * FROM config").then(function (rows) {
             case 'longRunner':
                 require('./lib/longRunner.js');
                 break;
+            case 'appInsightsRunner':
+                require('./lib/appInsightsRunner.js');
+                break;
             default:
                 console.error("Invalid module provided.  Please provide a valid module");
                 process.exit(1);
         }
     } else {
         console.error("Invalid module/tool provided.  Please provide a valid module/tool");
-        console.error("Valid Modules: pool, blockManager, payments, api, remoteShare, worker, longRunner");
+        console.error("Valid Modules: pool, blockManager, payments, api, remoteShare, worker, longRunner, appInsightsRunner");
         let valid_tools = "Valid Tools: ";
         fs.readdirSync('./tools/').forEach(function(line){
             valid_tools += path.parse(line).name + ", ";
