@@ -1,4 +1,5 @@
 "use strict";
+let appInsights = require("applicationinsights");
 let mysql = require("promise-mysql");
 let fs = require("fs");
 let argv = require('minimist')(process.argv.slice(2));
@@ -6,6 +7,7 @@ let config = fs.readFileSync("./config.json");
 let coinConfig = fs.readFileSync("./coinConfig.json");
 let protobuf = require('protocol-buffers');
 let path = require('path');
+
 
 global.support = require("./lib/support.js")();
 global.config = JSON.parse(config);
@@ -42,6 +44,9 @@ global.mysql.query("SELECT * FROM config").then(function (rows) {
         }
     });
 }).then(function(){
+    appInsights.setup(global.config.monitoring.appInsightsKey);
+    let appInsightsClient = new appInsights.TelemetryClient(global.config.monitoring.appInsightsKey);
+    global.appInsightsClient = appInsightsClient;
     global.config['coin'] = JSON.parse(coinConfig)[global.config.coin];
     coinInc = require(global.config.coin.funcFile);
     global.coinFuncs = new coinInc();
@@ -57,6 +62,9 @@ global.mysql.query("SELECT * FROM config").then(function (rows) {
     if (argv.hasOwnProperty('tool') && fs.existsSync('./tools/'+argv.tool+'.js')) {
         require('./tools/'+argv.tool+'.js');
     } else if (argv.hasOwnProperty('module')){
+        appInsights.defaultClient.context.tags[appInsights.defaultClient.context.keys.cloudRole] = global.appInsightsClient.context.tags[global.appInsightsClient.context.keys.cloudRole] = argv.module;
+        appInsights.start();
+        global.appInsightsClient.trackEvent({name: "moduleStart"});
         switch(argv.module){
             case 'pool':
                 global.config.ports = [];
